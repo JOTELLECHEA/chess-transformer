@@ -1,0 +1,20 @@
+# Local Virtual Environments
+.chess/
+
+# Continue Folder 
+.continue/
+
+# Python Cache and Bytecode
+__pycache__/
+*.pyc
+
+# Testing and Coverage Caches
+.pytest_cache/
+
+# Machine Learning Weights & Large Binaries
+# (Prevents pushing massive matrix checkpoints to GitHub)
+*.pt
+
+# Data Folder
+data/
+private/
