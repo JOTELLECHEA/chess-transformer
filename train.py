@@ -47,7 +47,7 @@ def load_checkpoint():
 # Data Loader.
 tokenizer = MoveTokenizer.from_vocab_file("vocab_fixed.json")
 train_loader, val_loader, _ = prepare_datasets(
-    file_path="data/chessDataset_1.2m.txt",
+    file_path="data/chessDataset_98k.txt",
     block_size=config.block_size,
     batch_size=config.batch_size,
     split_ratio=0.9,
