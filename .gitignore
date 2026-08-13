@@ -18,3 +18,9 @@ __pycache__/
 # Data Folder
 data/
 private/
+
+.vscode/
+.DS_Store
+
+checkpoints/
+staging/
