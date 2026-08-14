@@ -15,8 +15,8 @@ class GPTConfig:
     
     # Architecture Structure
     vocab_size: int = 1973
-    n_layer: int = 6
-    n_head: int = 4
+    n_layer: int = 12
+    n_head: int = 6
     n_embd: int = 256
     dropout: float = 0.2
 
