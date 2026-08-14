@@ -17,7 +17,7 @@ class GPTConfig:
     vocab_size: int = 1973
     n_layer: int = 12
     n_head: int = 6
-    n_embd: int = 256
+    n_embd: int = 384
     dropout: float = 0.2
 
     def save(self, path: str) -> None:
