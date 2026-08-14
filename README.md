@@ -16,6 +16,14 @@ This project began as a straightforward tokenizer-and-training exercise, extendi
 
 The tokenization choice made early on turned out to matter a lot: moves are encoded in **UCI notation** (`e2e4`, not `Nf3`), which — unlike SAN — carries no explicit piece-identity information. The model has to *infer* what piece is moving from move history alone. This is what makes "does the model track the board state internally" a genuine, non-trivial question rather than something handed to it for free.
 
+## Try the tokenizer
+
+This project's tokenizer uses a fixed, closed-form vocabulary (1,973 tokens — every theoretically possible chess move, computed once from the rules of chess, plus five special tokens) rather than a learned, subword-based one. That has a real, visible consequence: unlike a BPE tokenizer, it has no fallback for text that isn't a legal move — it simply can't encode it.
+
+**[Try it live →](https://jonathantellechea.com/chess-transformer/)**
+
+Type any move sequence and watch it tokenize in real time, or type something that isn't a real move (`aaaa`) to see the closed-form vocabulary's failure mode directly, rather than just reading about it.
+
 <!-- ## Key findings -->
 
 <!-- | Experiment | Legal-move rate | Fully-legal games | Result | -->
