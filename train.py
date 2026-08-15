@@ -14,7 +14,6 @@ def in_colab():
         return True
     except Exception:
         return False
-
 if in_colab():
     print("Running in Google Colab environment.")
     data_root = "/content/drive/MyDrive/chess_project/"
@@ -23,9 +22,7 @@ else:
     print("Running local.")
     data_root = "data/"
     staging_root = "staging/"
-
 os.makedirs(staging_root, exist_ok=True)
-
 device = "cuda" if torch.cuda.is_available() else "cpu"
 if device == "cuda":
 	device_name = torch.cuda.get_device_name(torch.cuda.current_device())
@@ -38,12 +35,10 @@ if torch.cuda.is_available():
 	torch.cuda.manual_seed(config.seed)
 CHECKPOINT_PATH = staging_root + "training_checkpoint.pt"
 CHECKPOINT_EVERY_N_STEPS = 5000  
-
 def format_duration(seconds):
     h, rem = divmod(seconds, 3600)
     m, s = divmod(rem, 60)
     return f"{int(h)}h {int(m)}m {int(s)}s"
-
 def save_checkpoint(model, optimizer, epoch, step_in_epoch, best_val_loss, history, elapsed_seconds):
 	raw_model = model._orig_mod if hasattr(model, '_orig_mod') else model
 	tmp_path = CHECKPOINT_PATH + ".tmp"
@@ -56,13 +51,11 @@ def save_checkpoint(model, optimizer, epoch, step_in_epoch, best_val_loss, histo
 		'history': history,
 		'elapsed_seconds': elapsed_seconds,
 	}, tmp_path)
-	os.replace(tmp_path, CHECKPOINT_PATH)  # atomic on the same filesystem -- no partial-write window at the real path
-
+	os.replace(tmp_path, CHECKPOINT_PATH)
 def load_checkpoint():
 	if os.path.exists(CHECKPOINT_PATH):
 		return torch.load(CHECKPOINT_PATH, map_location=device)
 	return None
-
 tokenizer = MoveTokenizer.from_vocab_file("vocab_fixed.json")
 train_loader, val_loader, _ = prepare_datasets(
     file_path=data_root + "chessDataset_1.2m.txt",
@@ -82,7 +75,7 @@ start_epoch = 0
 start_step_in_epoch = 0
 best_val_loss = float('inf')
 history = []
-elapsed_seconds = 0.0  # TRUE cumulative training wall-clock time, survives resumes
+elapsed_seconds = 0.0
 ckpt = load_checkpoint()
 if ckpt is not None:
 	model.load_state_dict(ckpt['model_state_dict'])
@@ -91,22 +84,20 @@ if ckpt is not None:
 	start_step_in_epoch = ckpt['step_in_epoch']
 	best_val_loss = ckpt['best_val_loss']
 	history = ckpt['history']
-	elapsed_seconds = ckpt.get('elapsed_seconds', 0.0)  # .get() for backward compat with older checkpoints
+	elapsed_seconds = ckpt.get('elapsed_seconds', 0.0)
 	print(f"Resumed from checkpoint: epoch {start_epoch+1}, step {start_step_in_epoch:,}")
 	print(f"Elapsed training time so far: {format_duration(elapsed_seconds)}")
 else:
 	print("No checkpoint found -- starting fresh.")
 model = torch.compile(model)
-
-session_start_time = time.time()  # this session's own start, NOT the run's true start
-
+session_start_time = time.time()
 def current_total_elapsed():
     return elapsed_seconds + (time.time() - session_start_time)
-
 try:
 	for epoch in range(start_epoch, config.max_epochs):
 		model.train() 
 		total_train_loss = 0
+		steps_counted = 0
 		train_pbar = tqdm(
 			train_loader, 
 			desc=f"Epoch {epoch+1}/{config.max_epochs}", 
@@ -125,6 +116,7 @@ try:
 			torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 			optimizer.step()
 			total_train_loss += loss.item()
+			steps_counted += 1
 			if step % CHECKPOINT_EVERY_N_STEPS == 0 and step > 0:
 				save_checkpoint(model, optimizer, epoch, step, best_val_loss, history, current_total_elapsed())
 			if step % 10 == 0:
@@ -146,7 +138,7 @@ try:
 				_, loss_val = model(X_val, Y_val)
 				total_val_loss += loss_val.item()
 				val_pbar.set_postfix(val_loss=f"{loss_val.item():.4f}")
-		avg_train_loss = total_train_loss / len(train_loader)
+		avg_train_loss = total_train_loss / steps_counted
 		avg_val_loss = total_val_loss / len(val_loader)
 		try:
 			train_ppl = math.exp(avg_train_loss)
