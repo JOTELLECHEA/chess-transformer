@@ -1,5 +1,6 @@
 # Local Virtual Environments
 .chess/
+.envrc
 
 # Continue Folder 
 .continue/
