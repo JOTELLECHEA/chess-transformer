@@ -1,5 +1,5 @@
 """
-checkpoint_name.py
+src/checkpoint_name.py
 
 Generates a checkpoint folder name automatically from a config.json and a
 corpus file -- e.g. "98k_L6E256H4" -- rather than typing it by hand.Dataset
