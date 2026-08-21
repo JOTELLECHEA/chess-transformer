@@ -1,0 +1,37 @@
+{
+  "temperature": 0.3,
+  "skill": 7,
+  "seed": 954912694,
+  "moves": [
+    "d2d4",
+    "g8f6",
+    "c2c4",
+    "d7d5",
+    "c4d5",
+    "c8f5",
+    "b1c3",
+    "f6d5",
+    "g1f3",
+    "c7c6",
+    "d1b3",
+    "d8b6",
+    "c3d5",
+    "c6d5",
+    "b3d5",
+    "g7g6",
+    "e2e3",
+    "a7a6",
+    "f1c4",
+    "f5e6",
+    "d5e6",
+    "f7e6",
+    "c4e6",
+    "f8h6",
+    "e1g1",
+    "b6e6"
+  ],
+  "result": "0-1",
+  "notable": [
+    "ply 25: castled (O-O)"
+  ]
+}

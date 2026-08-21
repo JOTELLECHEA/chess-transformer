@@ -1,0 +1,37 @@
+{
+  "temperature": 0.15,
+  "skill": 2,
+  "seed": 191029889,
+  "moves": [
+    "e2e4",
+    "e7e6",
+    "d2d4",
+    "a7a6",
+    "g1f3",
+    "c7c5",
+    "d4d5",
+    "g8f6",
+    "b1c3",
+    "b7b6",
+    "c1g5",
+    "d7d6",
+    "d5e6",
+    "c8e6",
+    "e4e5",
+    "h7h6",
+    "e5f6",
+    "h6g5",
+    "f6g7",
+    "f8g7",
+    "d1d2",
+    "g7h6",
+    "e1c1",
+    "b8c6",
+    "d2d6",
+    "g5g4"
+  ],
+  "result": "illegal_move",
+  "notable": [
+    "ply 23: castled (O-O-O)"
+  ]
+}
