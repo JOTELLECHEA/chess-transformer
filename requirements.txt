@@ -1,0 +1,8 @@
+torch
+tqdm
+python-chess
+gradio
+matplotlib
+zstandard
+cairosvg
+pillow
