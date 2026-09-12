@@ -8,12 +8,21 @@ from src.config import GPTConfig
 from src.model import GPT
 from src.dataset import prepare_datasets, MoveTokenizer
 
+import argparse
+
+parser = argparse.ArgumentParser(description="Train the chess transformer.")
+parser.add_argument("--dataset", default="chessDataset_1.2m.txt",
+                    help="Training corpus. A bare filename is resolved against "
+                         "the data root; an absolute path is used as-is.")
+args = parser.parse_args()
+
 def in_colab():
     try:
         import google.colab
         return True
     except Exception:
         return False
+	
 if in_colab():
     print("Running in Google Colab environment.")
     data_root = "/content/drive/MyDrive/chess_project/"
@@ -22,23 +31,31 @@ else:
     print("Running local.")
     data_root = "data/"
     staging_root = "staging/"
+
 os.makedirs(staging_root, exist_ok=True)
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
 if device == "cuda":
 	device_name = torch.cuda.get_device_name(torch.cuda.current_device())
 else:
 	device_name = "System CPU"
+
 print(f"GPU acceleration on : {device_name}")
+
 config = GPTConfig()
 torch.manual_seed(config.seed)
+
 if torch.cuda.is_available():
 	torch.cuda.manual_seed(config.seed)
+
 CHECKPOINT_PATH = staging_root + "training_checkpoint.pt"
 CHECKPOINT_EVERY_N_STEPS = 5000  
+
 def format_duration(seconds):
     h, rem = divmod(seconds, 3600)
     m, s = divmod(rem, 60)
     return f"{int(h)}h {int(m)}m {int(s)}s"
+
 def save_checkpoint(model, optimizer, epoch, step_in_epoch, best_val_loss, history, elapsed_seconds):
 	raw_model = model._orig_mod if hasattr(model, '_orig_mod') else model
 	tmp_path = CHECKPOINT_PATH + ".tmp"
@@ -52,31 +69,43 @@ def save_checkpoint(model, optimizer, epoch, step_in_epoch, best_val_loss, histo
 		'elapsed_seconds': elapsed_seconds,
 	}, tmp_path)
 	os.replace(tmp_path, CHECKPOINT_PATH)
+
 def load_checkpoint():
 	if os.path.exists(CHECKPOINT_PATH):
 		return torch.load(CHECKPOINT_PATH, map_location=device)
 	return None
+
 tokenizer = MoveTokenizer.from_vocab_file("vocab_fixed.json")
+dataset_path = args.dataset if os.path.isabs(args.dataset) else data_root + args.dataset
+
 train_loader, val_loader, _ = prepare_datasets(
-    file_path=data_root + "chessDataset_1.2m.txt",
+    file_path=dataset_path,
     block_size=config.block_size,
     batch_size=config.batch_size,
     split_ratio=0.9,
     tokenizer=tokenizer,
 )
+print(f"Training on {dataset_path}")
+
 config.vocab_size = tokenizer.vocab_size
 tokenizer.save_vocab(staging_root + "vocab.json")
 config.save(staging_root + "config.json")
+
 model = GPT(config).to(device)
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
+
 optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=1e-2)
+
 start_epoch = 0
 start_step_in_epoch = 0
 best_val_loss = float('inf')
+
 history = []
 elapsed_seconds = 0.0
+
 ckpt = load_checkpoint()
+
 if ckpt is not None:
 	model.load_state_dict(ckpt['model_state_dict'])
 	optimizer.load_state_dict(ckpt['optimizer_state_dict'])
@@ -89,10 +118,14 @@ if ckpt is not None:
 	print(f"Elapsed training time so far: {format_duration(elapsed_seconds)}")
 else:
 	print("No checkpoint found -- starting fresh.")
+
 model = torch.compile(model)
 session_start_time = time.time()
+
 def current_total_elapsed():
+
     return elapsed_seconds + (time.time() - session_start_time)
+
 try:
 	for epoch in range(start_epoch, config.max_epochs):
 		model.train() 
@@ -185,9 +218,11 @@ try:
 		print("="*97 + "\n")
 		print(checkpoint_note + "\n")
 	print(f"Training complete. Best val_loss={best_val_loss:.4f}. Total elapsed: {format_duration(elapsed_seconds)}")
+
 except KeyboardInterrupt:
 	final_elapsed = current_total_elapsed()
 	print(f"\nInterrupted -- saving checkpoint before exiting...")
 	print(f"Actual elapsed training time before stopping: {format_duration(final_elapsed)}")
 	save_checkpoint(model, optimizer, epoch, step, best_val_loss, history, final_elapsed)
+
 	print("Checkpoint saved. Re-run this script to resume.")
