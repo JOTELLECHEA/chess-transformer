@@ -12,13 +12,15 @@ with:
       (or partially finished) is fast and safe
 
 Usage:
-    python -m src.download_lichess_data --output-dir lichess_gm_data
+    # the corpora behind the results table:
+    python -m src.download_lichess_data --corpus 1.2m --output-dir data
+    python -m src.download_lichess_data --corpus 98k --output-dir data
 
-    # only a specific set of months:
-    python -m src.download_lichess_data --months 2025-01,2025-02,2025-03 --output-dir lichess_gm_data
+    # an explicit set of months:
+    python -m src.download_lichess_data --months 2025-01,2025-02 --output-dir data
 
     # skip checksum verification (faster, less safe):
-    python -m src.download_lichess_data --output-dir lichess_gm_data --skip-checksum
+    python -m src.download_lichess_data --output-dir data --skip-checksum
 """
 import argparse
 import hashlib
@@ -28,15 +30,18 @@ from pathlib import Path
 from urllib.request import urlopen
 from urllib.error import URLError
 
-# This particular set is the 17 most recent months as of writing, summing
-# to ~510GB -- see the conversation this script came out of for how it was
-# picked.
-DEFAULT_MONTHS = [
-    "2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06",
-    "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12",
-    "2026-01", "2026-02", "2026-03", "2026-04", "2026-05",
-]
+# 2023-01 alone is the `98k` corpus; the full 18-month set is the `1.2m`
+# corpus, ~510GB compressed.
+CORPORA = {
+    "98k": ["2023-01"],
+    "1.2m": [
+        "2023-01", "2025-01", "2025-02", "2025-03", "2025-04", "2025-05",
+        "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11",
+        "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05",
+    ],
+}
 
+DEFAULT_MONTHS = CORPORA["1.2m"]
 
 def filename_for_month(month: str) -> str:
     return f"lichess_db_standard_rated_{month}.pgn.zst"
@@ -103,10 +108,13 @@ def download_one(url: str, dest: Path, retries: int) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="Download Lichess monthly game archives.")
-    parser.add_argument("--output-dir", default="lichess_gm_data")
+    parser.add_argument("--output-dir", default="data")
+    parser.add_argument("--corpus", choices=sorted(CORPORA), default=None,
+                         help="Named corpus from the results table: 98k (one month) "
+                              "or 1.2m (18 months, ~510GB). Mutually exclusive with --months.")
     parser.add_argument("--months", default=None,
                          help="Comma-separated list, e.g. 2025-01,2025-02. "
-                              "Defaults to the 17-month set summing to ~510GB.")
+                              "Defaults to the 1.2m corpus (18 months, ~510GB).")
     parser.add_argument("--base-url", default="https://database.lichess.org/standard",
                          help="Override for testing against a different host.")
     parser.add_argument("--skip-checksum", action="store_true",
@@ -119,8 +127,15 @@ def main():
     parser.add_argument("--retries", type=int, default=20,
                          help="wget retry count per file for transient network failures.")
     args = parser.parse_args()
-
-    months = args.months.split(",") if args.months else DEFAULT_MONTHS
+    
+    if args.corpus and args.months:
+        sys.exit("Pass either --corpus or --months, not both.")
+    if args.corpus:
+        months = CORPORA[args.corpus]
+    elif args.months:
+        months = [m.strip() for m in args.months.split(",")]
+    else:
+        months = DEFAULT_MONTHS
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
