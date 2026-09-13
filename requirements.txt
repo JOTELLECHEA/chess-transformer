@@ -6,3 +6,5 @@ matplotlib
 zstandard
 cairosvg
 pillow
+safetensors
+huggingface_hub
