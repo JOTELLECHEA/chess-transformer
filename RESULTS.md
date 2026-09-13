@@ -85,8 +85,7 @@ a three-year gap, so the data comparison is not a clean scale-only
 manipulation. The capacity comparison is unaffected, holding corpus fixed
 within each pair. A same-period control at 98k scale would isolate this.
 
-**Color is uncontrolled.** Every win-rate and illegal-rate result here had the
-model playing White exclusively.
+**Color is uncontrolled.** Every win-rate and illegal-rate result here had the model playing White exclusively. Chess has real structural color asymmetries, so these numbers could shift when the model plays Black.
 
 **Legality evaluation is self-play generation, not tournament play.** The
 fully-legal-game percentages measure unconditioned generation, which is a

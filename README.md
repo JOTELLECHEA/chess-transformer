@@ -7,11 +7,58 @@
 </div>
 
 <p align="center">
-  <!-- <a href="https://github.com/JOTELLECHEA/chess-transformer/releases"><img src="https://img.shields.io/github/v/release/JOTELLECHEA/chess-transformer" alt="Release"></a> -->
   <a href="LICENSE"><img src="https://img.shields.io/github/license/JOTELLECHEA/chess-transformer" alt="License"></a>
-  <img src="https://img.shields.io/badge/python-3.12.3-blue" alt="Python 3.12.3">
+  <img src="https://img.shields.io/badge/python-3.12%2B-blue" alt="Python 3.12+">
 </p>
+
 A GPT-style transformer trained to predict chess moves from UCI-tokenized move sequences and, more specifically, a controlled investigation into why such models produce illegal moves, and what actually fixes it.
+
+## Quick start
+
+Weights live on [Hugging Face](https://huggingface.co/Jotellechea/chess-transformer)
+and download automatically on first run, so nothing here requires the training
+pipeline.
+
+```bash
+git clone https://github.com/JOTELLECHEA/chess-transformer.git
+cd chess-transformer
+python -m venv .venv
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python app.py
+```
+
+That opens a local Gradio app where any two of the four checkpoints play each
+other. A game ends the moment a model samples an illegal move, which is the
+comparison: the flagship completes a full game roughly half the time, the
+smallest checkpoint almost never does.
+
+To drive a checkpoint directly instead:
+
+```python
+from huggingface_hub import snapshot_download
+from src.config import GPTConfig
+from src.self_play_engine import PlayerConfig, play_game
+
+repo = snapshot_download("Jotellechea/chess-transformer")
+flagship = f"{repo}/1.2m_L12E384H6"
+
+white = PlayerConfig(name="flagship-white", player_type="model", checkpoint_dir=flagship)
+black = PlayerConfig(name="flagship-black", player_type="model", checkpoint_dir=flagship)
+
+for event in play_game(white, black, device="cpu",
+                       fallback_config=GPTConfig.load(f"{flagship}/config.json"),
+                       fallback_vocab_path=f"{flagship}/vocab.json",
+                       max_plies=150, temperature=0.5):
+    print(event.ply, event.san or event.uci)
+```
+
+Each checkpoint on Hugging Face ships its own `vocab.json`, which is byte-identical
+to the `vocab_fixed.json` in this repo — the vocabulary is closed-form and shared
+across all four checkpoints.
+
+Training from scratch is a separate path, documented in
+[Reproducing this work](#reproducing-this-work).
 
 ## Try the tokenizer
 
@@ -24,7 +71,8 @@ what happens.
 ## Results
 
 Checkpoint names encode corpus size and architecture: `1.2m_L12E384H6` is 1.2M
-games, 12 layers, 384 embedding dimensions, 6 attention heads.
+games, 12 layers, 384 embedding dimensions, 6 attention heads. The 6-layer
+checkpoints are roughly 5M parameters, the 12-layer roughly 22M.
 
 | Checkpoint | Architecture | Epochs | Final Val Loss | Legal-move rate | Fully-legal games |
 |:---|:---:|:---:|:---:|:---:|:---:|
@@ -35,15 +83,30 @@ games, 12 layers, 384 embedding dimensions, 6 attention heads.
 
 Scaling data alone takes fully-legal games from 4.4% to 11.4%. Scaling capacity
 alone takes it to 9.8%. Doing both takes it to 51.8%, roughly 12x baseline and
-five times what either intervention achieves on its own. Capacity and data
-unlock each other rather than contributing separable gains.
+four to five times what either intervention achieves on its own. Capacity and
+data unlock each other rather than contributing separable gains.
 
-Linear probes show why: the 12-layer model's internal board-state
-representation peaks at layer 9 of 12, closing 84.6% of the gap to perfect
-against a random-init baseline, while the 6-layer model plateaus short of it.
+One row cuts against that story. `98k_L12E384H6` has the worst validation loss
+in the table by a wide margin, yet better legality than the 6-layer model
+trained on the same corpus. Depth appears to help legality even where it hurts
+next-move prediction on a small corpus. Why is not something this project
+measured.
 
-Legality is not strength, though. Against Stockfish, only one win-rate
-difference across the whole skill range is statistically significant.
+Linear probes show what the extra depth is doing. A linear probe reads board
+state off the model's internal activations; the reference point is the same
+probe trained on a random-init model of identical architecture, which scores
+well above chance purely from board statistics. Against that baseline, the
+12-layer model closes 84.6% of the remaining gap, peaking at layer 9 of 12. The
+6-layer model is still climbing at its final layer, with improvement collapsed
+to a fraction of a point.
+
+Legality is not strength, though. Against Stockfish, the only statistically
+significant win-rate difference across the whole skill range is at skill 0,
+where the 12-layer model wins 3.8% of games to the 6-layer model's 0.8%. Every
+other difference falls within noise at n=500 per point.
+
+All of these numbers come from the model playing White exclusively — see
+[Roadmap](#roadmap) for why that matters and what's planned about it.
 
 See [`RESULTS.md`](RESULTS.md) for the full breakdown, including a rejected
 hypothesis about game length and the known limitations.
@@ -77,38 +140,30 @@ Tokenization mattered more than expected. Character-level was the obvious defaul
 
 ## Reproducing this work
 
-Two system dependencies aren't covered by pip:
+Starts from the same clone-and-install as [Quick start](#quick-start), plus two
+system dependencies that aren't covered by pip:
 
 ```bash
-apt install stockfish   # playing games against the model
-apt install wget        # resumable archive downloads
+sudo apt install stockfish   # playing games against the model
+sudo apt install wget        # resumable archive downloads (not preinstalled on macOS)
 ```
 
-**1. Clone and install**
-
-```bash
-git clone https://github.com/JOTELLECHEA/chess-transformer.git
-cd chess-transformer
-pip install -r requirements.txt
-```
-
-**2. Download the Lichess archives**
+**1. Download the Lichess archives**
 
 The two corpora in the results table:
 
 ```bash
-# 98k corpus: a single month, ~30GB
+# 98k corpus: a single month
 python -m src.download_lichess_data --corpus 98k --output-dir data
 
-# 1.2m corpus: 18 months, ~510GB
+# 1.2m corpus: 18 months, ~510GB total
 python -m src.download_lichess_data --corpus 1.2m --output-dir data
 ```
 
-Roughly 30GB compressed per month, so the full pull is around 510GB. Downloads
-are resumable and checksum-verified, so an interrupted run can be restarted
-with the same command.
+Downloads are resumable and checksum-verified, so an interrupted run can be
+restarted with the same command.
 
-**3. Tokenize**
+**2. Tokenize**
 
 ```bash
 python -m src.tokenise_lichess_batch \
@@ -121,7 +176,7 @@ The GM filter is aggressive: 510GB of archives reduces to a 500MB token file
 of roughly 1.2M games. Resumable, so an interrupted run can be restarted with
 the same command. Delete `batch_progress.json` once it finishes.
 
-**4. Build the vocabulary (optional)**
+**3. Build the vocabulary (optional)**
 
 ```bash
 python -m src.build_vocab --closed-form --output vocab_fixed.json
@@ -130,7 +185,7 @@ python -m src.build_vocab --closed-form --output vocab_fixed.json
 `vocab_fixed.json` ships with the repo. The vocabulary is closed-form, so
 rebuilding it produces an identical file.
 
-**5. Train**
+**4. Train**
 
 Edit `src/config.py` to set architecture and training parameters, then:
 
@@ -140,7 +195,7 @@ python train.py
 
 Defaults to `chessDataset_1.2m.txt`.
 
-**6. Evaluate legality**
+**5. Evaluate legality**
 
 ```bash
 python -m src.eval_legality --checkpoint-dir checkpoints/<checkpoint_name> --n-games 50
@@ -166,7 +221,7 @@ development.
 
 ## Related work
 
-This project replicates and extends an established line of interpretability research, rather than introducing a novel finding of its own:
+Three papers this work builds directly on:
 
 - Li, Wu, Nathan, Andreas, Belinkov, Bau — [Emergent World Representations](https://arxiv.org/abs/2210.13382) (OthelloGPT, ICLR 2023) — the foundational demonstration that a transformer trained purely on next-move prediction, with no explicit rules or board supervision, develops an internal board-state representation.
 - Nanda, Lee, Wattenberg — [Emergent Linear Representations in World Models of Self-Supervised Sequence Models](https://arxiv.org/abs/2309.00941) — showed the OthelloGPT representation is *linearly* decodable, and causally used by the model, not just incidentally present.
@@ -176,7 +231,7 @@ This project replicates and extends an established line of interpretability rese
 
 - **A phrase-aware tokenization variant** — the existing closed-form move vocabulary (every theoretically possible move, including all four promotion types) would remain unchanged as the base layer. A second, learned layer on top would merge frequently-repeated *opening* sequences into single phrase-tokens, with which sequences qualify determined by real corpus frequency rather than a fixed, hand-curated opening-book lookup. Tested head-to-head against the current scheme on legality, training efficiency, and probe accuracy.
 - **Castling and en passant probing** — extending the linear-probe methodology to test whether the model's internal representation tracks history-dependent legality (castling rights, en passant availability), not just current piece positions.
-- **Color-balance check** — every win-rate/illegal-rate result above had the model playing White exclusively, an uncontrolled variable given chess's real structural color asymmetries. `plot_win_rate_by_color.py` exists and is tested (including direct verification that a result string is correctly attributed to the model regardless of which side it's playing), but hasn't yet been run at scale on the real checkpoints.
+- **Color-balance check** — every win-rate and illegal-rate result above had the model playing White exclusively. Chess has real structural color asymmetries, so any of those numbers could shift when the model plays Black. Running the same evaluation with the colors swapped would either confirm the results generalize or surface a difference worth reporting.
 
 
 ## Authors & License
