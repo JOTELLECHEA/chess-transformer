@@ -1,37 +1,40 @@
 """
 self_play_engine.py
- 
+
 Core game engine, decoupled from any UI framework. Each side is
 independently configured as "model" (a trained checkpoint, or a fresh
 random-init baseline), "stockfish" (a real engine via python-chess), or
 "human" (moves supplied externally) -- covering self-play, head-to-head,
 and model-vs-engine/human through one code path.
- 
+
 Model players load their own config/tokenizer independently, since two
 players can be different architectures (e.g. 6-layer vs 12-layer); all
 checkpoints share the same closed-form vocabulary, so token IDs stay
-directly comparable across them regardless.
- 
+directly comparable across them regardless. Weights load from either
+model.safetensors (as published on HuggingFace) or model_weights.pt (as
+written by train.py), so the same engine works with both.
+
 An illegal move ends the game immediately for a MODEL (same convention as
 eval_legality.py -- the board state is undefined past that point).
 Stockfish never produces one. A human's illegal move is just re-requested,
 not game-ending, since a typo isn't the same kind of failure as a model's.
- 
+
 Human input works via generator .send(): the engine yields a MoveEvent
 with awaiting_human_input=True and pauses, resuming when the caller sends
 back a move string.
- 
+
 Cleanup: a Stockfish player holds a real subprocess, closed in `finally`.
 If a game might be abandoned mid-way with Stockfish involved, the caller
 MUST call generator.close() -- otherwise the subprocess is left orphaned,
 relying on non-deterministic garbage collection instead.
 """
 from dataclasses import dataclass
-from typing import Optional, Iterator
+from typing import Optional, Generator
 import os
 import torch
 import chess
 import chess.engine
+from safetensors.torch import load_model
 from src.config import GPTConfig
 from src.model import GPT
 from src.dataset import MoveTokenizer
@@ -86,8 +89,20 @@ class _ModelPlayer:
         self.config.vocab_size = tokenizer.vocab_size
         self.model = GPT(self.config).to(device)
         if checkpoint_dir is not None:
-            weights_path = os.path.join(checkpoint_dir, "model_weights.pt")
-            self.model.load_state_dict(torch.load(weights_path, map_location=device))
+            safetensors_path = os.path.join(checkpoint_dir, "model.safetensors")
+            pt_path = os.path.join(checkpoint_dir, "model_weights.pt")
+            if os.path.exists(safetensors_path):
+                # load_model(), not load_file() -- wte.weight and lm_head.weight
+                # are tied, and load_model reconstructs that tie rather than
+                # leaving two independent tensors.
+                load_model(self.model, safetensors_path, device=device)
+            elif os.path.exists(pt_path):
+                self.model.load_state_dict(torch.load(pt_path, map_location=device))
+            else:
+                raise FileNotFoundError(
+                    f"No weights found in {checkpoint_dir}: expected either "
+                    f"model.safetensors or model_weights.pt"
+                )
         self.model.eval()
         self.device = device
 
@@ -126,7 +141,7 @@ def play_game(
     temperature: float = 1.0,
     max_resample_tries: int = 1,
     respect_result_tokens: bool = True,
-) -> Iterator[MoveEvent]:
+) -> Generator[MoveEvent, str, None]:
     """
     Plays a full game, White vs Black, yielding a MoveEvent after every ply.
 
@@ -168,7 +183,6 @@ def play_game(
             move = None
             uci_str = None
             legal = False
-            game_result = None
 
             if current_config.player_type == "stockfish":
                 result = current_backend.play(board, chess.engine.Limit(time=current_config.stockfish_time_limit))
@@ -247,7 +261,7 @@ def play_game(
             san = board.san(move)
             board.push(move)
 
-           # Check to see if the game is over after each move.
+            # Check to see if the game is over after each move.
             if board.is_game_over():
                 outcome = board.outcome()
                 yield MoveEvent(
