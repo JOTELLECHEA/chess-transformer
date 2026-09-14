@@ -7,6 +7,10 @@
 </div>
 
 <p align="center">
+<!--   
+  <a href="https://github.com/JOTELLECHEA/chess-transformer/releases"><img src="https://img.shields.io/github/v/release/JOTELLECHEA/chess-transformer" alt="Release"></a>
+  -->
+  <a href="https://github.com/JOTELLECHEA/chess-transformer/actions/workflows/tests.yml"><img src="https://github.com/JOTELLECHEA/chess-transformer/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/JOTELLECHEA/chess-transformer" alt="License"></a>
   <img src="https://img.shields.io/badge/python-3.12%2B-blue" alt="Python 3.12+">
 </p>
