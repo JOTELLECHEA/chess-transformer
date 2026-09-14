@@ -2,27 +2,17 @@
 .chess/
 .envrc
 
-# Continue Folder 
-.continue/
-
-# Python Cache and Bytecode
+# Python Cache
 __pycache__/
 *.pyc
-
-# Testing and Coverage Caches
 .pytest_cache/
 
-# Machine Learning Weights & Large Binaries
-# (Prevents pushing massive matrix checkpoints to GitHub)
+# weights
 *.pt
+*.safetensors
 
-# Data Folder
+# folders that don't belong on github
 data/
-private/
-
-.vscode/
-.DS_Store
-
 checkpoints/
 staging/
-src/legacy/
+games/
