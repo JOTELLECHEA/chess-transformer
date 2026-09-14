@@ -1,5 +1,6 @@
 # Local Virtual Environments
 .chess/
+.venv
 .envrc
 
 # Python Cache

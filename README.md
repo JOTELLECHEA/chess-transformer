@@ -117,7 +117,7 @@ hypothesis about game length and the known limitations.
 <img src="plots/demo_game_2.gif" alt="1.2m_L12E384H6 vs Stockfish, decisive win" width="320">
 </div>
 
-The flagship checkpoint (`1.2m_L12E384H6`) playing Stockfish as White at
+The flagship checkpoint (`1.2m_L12E384H6`) playing Stockfish (skill 3) as White at
 temperature `0.1`, low enough to reflect the model's own confident preference
 rather than a lucky sample. A full 79-ply game ending in a win.
 
@@ -200,10 +200,6 @@ Defaults to `chessDataset_1.2m.txt`.
 ```bash
 python -m src.eval_legality --checkpoint-dir checkpoints/<checkpoint_name> --n-games 50
 ```
-
-See `src/README.md` for the full pipeline breakdown and script-by-script
-documentation.
-
 
 ## Training infrastructure
 

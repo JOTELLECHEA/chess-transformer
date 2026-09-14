@@ -5,9 +5,6 @@ Plays one game via self_play_engine.py and stitches the resulting board
 states into an animated GIF.
 
 Usage:
-    # replay an already-saved, exact game (reliable -- see notes below)
-    python -m src.make_game_gif --replay-from-file games/temp0.1_skill3_seed1711982294.json --output plots/demo.gif
-
     # live generation, model (White) vs Stockfish (Black)
     python -m src.make_game_gif \
         --white-type model --white-checkpoint-dir checkpoints/1.2m_L12E384H6 \
@@ -20,11 +17,6 @@ Usage:
         --black-type model --black-checkpoint-dir checkpoints/1.2m_L6E256H4 \
         --output plots/demo.gif
 
-Reproducibility note: --seed only makes the MODEL side of live generation
-reproducible -- Stockfish's move selection isn't guaranteed deterministic
-the same way. --replay-from-file (from a game already saved by
-sweep_games.py) is the only fully reliable way to reproduce a specific
-game exactly.
 """
 import argparse
 import io
@@ -116,7 +108,7 @@ def main():
     parser.add_argument("--black-stockfish-time-limit", type=float, default=0.1)
 
     parser.add_argument("--stockfish-path", default="/usr/games/stockfish")
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--device", default="cpu")
     parser.add_argument("--max-plies", type=int, default=80)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--output", default="plots/demo_game.gif")
