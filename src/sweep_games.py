@@ -2,15 +2,14 @@
 sweep_games.py
 
 Plays multiple games across a grid of (temperature, Stockfish skill)
-combinations, summarizing each one with opening moves, whether either side
-castled, final result, game length so you can quickly scan for
+combinations, summarizing each one -- opening moves, whether either side
+castled, final result, game length -- so you can quickly scan for
 interesting games worth turning into an actual GIF via make_game_gif.py,
 rather than generating full animations for every combination up front.
 
 Usage:
     python sweep_games.py
 """
-
 import json
 import os
 import random
@@ -24,40 +23,40 @@ DEVICE = "cuda"
 STOCKFISH_PATH = "/usr/games/stockfish"
 FALLBACK_VOCAB_PATH = "vocab_fixed.json"
 
-TEMPERATURES = [i / 20 for i in range(1, 11)] # 0.05, 0.10, 0.15, ..., 0.50
-STOCKFISH_SKILLS = [i for i in range(0, 21, 1)] # 0, 1, 2, ..., 20
+TEMPERATURES = [0.5, 0.7, 1.0, 1.2]
+STOCKFISH_SKILLS = [0, 5, 10, 15, 20]
 
-MAX_PLIES = 200
+MAX_PLIES = 100
 OPENING_PLIES_SHOWN = 10
 
-CASTLING_MOVES = {"e1g1", "e1c1", "e8g8", "e8c8"}
-UNDERPROMOTION_SUFFIXES = {"n", "b", "r"}  # n = knight, b = bishop, r = rook; q = queen is the default promotion and not considered "notable"
+UNDERPROMOTION_SUFFIXES = {"n", "b", "r"}  # queen ('q') is the common case, not flagged as notable
 
-FALLBACK_CONFIG = GPTConfig.load(f"{CHECKPOINT_DIR}/config.json")
+FALLBACK_CONFIG = None  # loaded lazily in main() -- see note there
 
 
 MODEL_PLAYER_NAME = "model"  # must match the `name=` used in play_one()'s PlayerConfig for the model side
 
 
 def classify_notable(event) -> str:
-    """Labels en passant, underpromotion, or castling only for the
-    MODEL's own moves. Since Stockfish already knows every rule perfectly
+    """Labels en passant, underpromotion, or castling -- only for the
+    MODEL's own moves, since Stockfish already knows every rule perfectly
     and its moves prove nothing about the model. Castling is included but
     is common enough in real games to not be the interesting part; en
     passant and underpromotion are the signals that actually matter."""
-
-    # Nothing notable about Stockfish's moves, and we only care about the model's own moves
     if event.player_name != MODEL_PLAYER_NAME:
         return ""
-    # Nothing notable about illegal moves. event.san is None for result tokens. 
     if not event.is_legal or event.san is None:
         return ""
-    # Typical moves have length 4 (e2e4, g1f3, etc.) or 5 (e7e8q, g7g8n, etc. for promotions).
     if len(event.uci) == 5 and event.uci[-1] in UNDERPROMOTION_SUFFIXES:
         return f"underpromotion ({event.san})"
+    # Use board.is_castling(), not a naive UCI-string match against
+    # {"e1g1", ...} -- a rook that happens to be sitting on e1/e8 could
+    # produce the exact same from-square/to-square UCI string via an
+    # entirely ordinary move, with no castling involved at all. Verified
+    # directly: a rook e8->c8 produces uci "e8c8", identical to Black's
+    # queenside castling string, despite being unrelated.
     board_before = chess.Board(event.board_fen_before)
     move = chess.Move.from_uci(event.uci)
-    # Checks for castling and en passant must be done on the board state before the move is made.
     if board_before.is_castling(move):
         return f"castled ({event.san})"
     if board_before.is_en_passant(move):
@@ -124,6 +123,13 @@ def play_one(temperature: float, skill: int):
 
 
 def main():
+    # Loaded here rather than at module scope so that importing this module
+    # -- to test classify_notable(), for instance -- doesn't require a
+    # checkpoint on disk. checkpoints/ is gitignored, so a module-level load
+    # breaks anywhere the weights aren't present, including CI.
+    global FALLBACK_CONFIG
+    FALLBACK_CONFIG = GPTConfig.load(f"{CHECKPOINT_DIR}/config.json")
+
     print(f"{'Temp':<6}{'Skill':<7}{'Seed':<12}{'Plies':<7}{'Result':<14}{'Opening'}")
     print("-" * 110)
     for temperature in TEMPERATURES:
