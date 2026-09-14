@@ -45,7 +45,7 @@ DEFAULT_CHECKPOINT = "1.2m games, 12-layer (flagship)"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BOARD_SIZE = 400
-MOVE_DELAY_SECONDS = 0.3
+MOVE_DELAY_SECONDS = 0.5
 
 print(f"Downloading checkpoints from {HF_REPO_ID} (cached after first run)...")
 REPO_ROOT = snapshot_download(repo_id=HF_REPO_ID)
@@ -130,13 +130,11 @@ def play(white_checkpoint, black_checkpoint, temperature, max_plies):
 
 with gr.Blocks(title="Chess Move-Prediction Transformer") as demo:
     gr.Markdown(
-        "# Chess Move-Prediction Transformer\n"
-        "Four checkpoints trained on Lichess GM games, playing each other. Each was "
-        "trained only to predict the next move — none were given the rules of chess.\n\n"
-        "**A game ends the moment a model samples an illegal move.** That's the "
-        "comparison: the flagship completes a full game roughly half the time, the "
-        "smallest checkpoint almost never does. "
-        "[Full results →](https://github.com/JOTELLECHEA/chess-transformer)"
+        "<h1 align='center'>Chess Move-Prediction Transformer</h1>"
+        "<p align='center'>Four checkpoints trained on Lichess GM games, playing each other. "
+        "None were given the rules of chess.<br>"
+        "A game ends the moment a model samples an illegal move. "
+        "<a href='https://github.com/JOTELLECHEA/chess-transformer'>Full results →</a></p>"
     )
 
     with gr.Row():
