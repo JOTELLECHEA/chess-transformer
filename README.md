@@ -69,7 +69,7 @@ Training from scratch is a separate path, documented in
 Unlike a BPE tokenizer, this one has no fallback for text that isn't a legal
 move. It simply can't encode it. 
 
-**[Try it live →](https://jonathantellechea.com/chess-transformer/)** Type a move sequence to watch it tokenize in real time, or type `aaaa` to see
+**[Try it live →](https://jotellechea.github.io/chess-transformer/)** Type a move sequence to watch it tokenize in real time, or type `aaaa` to see
 what happens.
 
 ## Results
